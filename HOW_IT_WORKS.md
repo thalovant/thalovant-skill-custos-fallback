@@ -74,6 +74,11 @@ pip install -e '.[test]' && pytest test/                 # fast
 pip install --pre -e '.[test,e2e]' && pytest test/       # + a real ovos-core
 ```
 
+Both run in CI on every push: the unit suite across Python 3.10-3.13, the
+end-to-end suite on one of them, and a packaging job that builds the wheel and
+checks every locale directory is actually inside it — a wheel missing one
+speaks dialog identifiers at people, and nothing else here would notice.
+
 The end-to-end suite boots an actual ovos-core through
 [ovoscope](https://github.com/OpenVoiceOS/ovoscope) and asserts two things the
 unit tests structurally cannot: that the skill loads, and that an unmatchable

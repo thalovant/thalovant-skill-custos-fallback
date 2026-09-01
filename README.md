@@ -1,5 +1,8 @@
 # Custos Fallback
 
+[![PyPI](https://img.shields.io/pypi/v/thalovant-skill-custos-fallback)](https://pypi.org/project/thalovant-skill-custos-fallback/)
+[![License](https://img.shields.io/pypi/l/thalovant-skill-custos-fallback)](LICENSE)
+
 **Your voice assistant should never just go quiet on you.**
 
 Ask it something it doesn't know, and normally nothing happens at all. No
@@ -16,7 +19,7 @@ That's the whole skill.
 ## Install
 
 ```bash
-pip install git+https://github.com/thalovant/thalovant-skill-custos-fallback
+pip install thalovant-skill-custos-fallback
 ```
 
 Nothing to set up. It only speaks when no other skill could help, so it never

@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-First release.
+First release, on PyPI as `thalovant-skill-custos-fallback`.
 
 Speaks a refusal when no skill matched, in the 90-100 last-resort fallback
 band, so an unmatched utterance ends in a sentence rather than the caller's
