@@ -1,8 +1,14 @@
 name: publish
 
 # Publishing to PyPI is irreversible per version — a release can be yanked but
-# never replaced — so the whole suite has to pass first, and the tag has to
-# agree with the version in the package.
+# never replaced — so the suite runs first and the tag has to agree with the
+# version in the package.
+#
+# Follows thalovant-python-sdk's publish workflow: prefer an API token when the
+# organisation provides one, fall back to Trusted Publishing when it does not.
+# That is not only redundancy. A trusted publisher attached to a project cannot
+# bring a *new* project into existence — PyPI answers "Non-user identities
+# cannot create new projects" — whereas an API token is a user identity and can.
 on:
   release:
     types: [published]
@@ -15,51 +21,109 @@ on:
 permissions:
   contents: read
 
-jobs:
-  verify:
-    name: tag matches the package version
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e '.[test]'
-      - run: pytest test/ --ignore=test/end2end -v
-      - name: compare
-        run: |
-          python - <<'PY'
-          import os, sys
-          from thalovant_skill_custos_fallback.version import __version__
-          tag = os.environ["TAG"].lstrip("v")
-          print(f"tag={tag} package={__version__}")
-          if tag != __version__:
-              sys.exit(f"tag {tag} does not match package version {__version__}")
-          PY
-        env:
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
 
+jobs:
   publish:
     name: publish to PyPI
-    needs: verify
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/thalovant-skill-custos-fallback
     permissions:
       # Trusted Publishing: PyPI verifies this workflow's OIDC identity, so no
-      # API token is stored anywhere. Configure it once at
-      # https://pypi.org/manage/project/thalovant-skill-custos-fallback/settings/publishing/
+      # API token need exist at all when the organisation has not set one.
       id-token: write
+    env:
+      PYPI_API_TOKEN_FROM_SECRET: ${{ secrets.PYPI_API_TOKEN }}
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ env.RELEASE_TAG }}
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install build
-      - run: python -m build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+
+      - run: pip install -e '.[test]' build twine
+
+      - name: Read package version
+        id: version
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from thalovant_skill_custos_fallback.version import __version__
+          print(f"version={__version__}")
+          PY
+
+      - name: Verify the tag matches the package version
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: test "$RELEASE_TAG" = "v$PACKAGE_VERSION"
+
+      - name: Check whether this version is already on PyPI
+        id: registry
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, urllib.error, urllib.request
+          version = os.environ["PACKAGE_VERSION"]
+          url = f"https://pypi.org/pypi/thalovant-skill-custos-fallback/{version}/json"
+          try:
+              with urllib.request.urlopen(url) as response:
+                  exists = response.status == 200
+          except urllib.error.HTTPError as error:
+              if error.code == 404:
+                  exists = False
+              else:
+                  raise
+          print(f"exists={str(exists).lower()}")
+          PY
+
+      - run: pytest test/ --ignore=test/end2end -v
+
+      - name: Build distributions
+        run: |
+          rm -rf dist
+          python -m build
+
+      - run: python -m twine check dist/*
+
+      - name: Publish skipped
+        if: steps.registry.outputs.exists == 'true'
+        run: echo "${{ steps.version.outputs.version }} is already on PyPI; nothing to do."
+
+      - name: Publish to PyPI with an API token
+        if: steps.registry.outputs.exists == 'false' && env.PYPI_API_TOKEN_FROM_SECRET != ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Publish to PyPI with trusted publishing
+        if: steps.registry.outputs.exists == 'false' && env.PYPI_API_TOKEN_FROM_SECRET == ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Verify it is actually on PyPI
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os, time, urllib.error, urllib.request
+          version = os.environ["PACKAGE_VERSION"]
+          url = f"https://pypi.org/pypi/thalovant-skill-custos-fallback/{version}/json"
+          for _ in range(12):
+              try:
+                  with urllib.request.urlopen(url) as response:
+                      if response.status == 200:
+                          print(f"Verified {version} on PyPI.")
+                          raise SystemExit(0)
+              except urllib.error.HTTPError as error:
+                  if error.code != 404:
+                      raise
+              time.sleep(10)
+          raise SystemExit(f"{version} was not visible on PyPI after waiting.")
+          PY
