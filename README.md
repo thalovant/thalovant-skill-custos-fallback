@@ -1,71 +1,20 @@
-# Custos Fallback — an OVOS fallback skill that answers when nothing matched
+# Custos Fallback
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![OVOS skill](https://img.shields.io/badge/OVOS-skill-brightgreen)](https://openvoiceos.org)
-[![Languages](https://img.shields.io/badge/languages-24-informational)](#languages)
+**When your voice assistant doesn't know the answer, it should say so.**
 
-A last-resort [OpenVoiceOS](https://openvoiceos.org) fallback skill. When no
-intent matches, it says so — in the user's language, immediately — instead of
-leaving the caller to discover the failure by timing out.
+Ask an OVOS assistant something no skill can handle, and what happens is…
+nothing. No "sorry, I don't know" — just silence, while you stand there
+wondering whether it heard you at all. Eventually whatever asked the question
+gives up and times out.
 
-Built for the [Thalovant](https://thalovant.com) Custos appliance, but it
-depends on nothing from it. It is about eighty lines and will slot into any
-ovos-core or HiveMind hub.
+This little skill fixes that. It waits until every other skill has had its
+turn, and if nobody could answer, it says so out loud, straight away, in your
+language.
 
-## The problem, measured
+> *"I cannot answer that. Ask me about incidents, or how this appliance is
+> doing."*
 
-An utterance that matches no intent produces **no terminal event on the wire at
-all**. Not a renamed one. Nothing.
-
-Here is a client subscribed to every terminal event worth naming —
-`ovos.intent.unmatched`, `complete_intent_failure`, `ovos.utterance.handled`,
-`speak`, `ovos.utterance.speak`, `ovos.intent.matched`,
-`ovos.utterance.cancelled` — sending one utterance of each kind down the same
-connection to a live HiveMind hub:
-
-```
---- unmatched: 'flibbertigibbet wumpus' ---
-    NOTHING arrived in 12s
-
---- matched control: 'what is the weather' ---
-    + 1.60s  ovos.utterance.speak     ctx={'request_id': 'request-e43b32b3...'}
-    + 1.61s  ovos.utterance.handled   ctx={'request_id': 'request-e43b32b3...'}
-```
-
-The correlation plumbing is healthy: the matched reply comes back in 1.6s with
-the right `request_id`. The unmatched one simply never resolves. A voice client
-therefore waits out its full timeout — several seconds of silence in a room —
-for a question the hub was never going to answer.
-
-`ovos-core` does raise `ovos.intent.unmatched` internally. It does not reach
-HiveMind satellite clients the way `speak` and `ovos.utterance.handled` do, so
-a satellite cannot tell "nothing matched" from "still thinking".
-
-A fallback skill is the fix, because **the hub is the only place that knows
-nothing matched.** Anything the client does — a vocabulary gate, a list of
-known intents — is a guess about the hub's capabilities held somewhere that
-cannot know them, and it goes stale the moment a skill is installed.
-
-## What it does
-
-Speaks a short refusal that names what the assistant *can* answer, then returns
-`True` so the interaction ends.
-
-> I cannot answer that. Ask me about incidents, or how this appliance is doing.
-
-Priority **95**, in the 90–100 last-resort band: it runs after every intent
-match and every other fallback, so a persona, an LLM fallback, or
-`ovos-skill-fallback-unknown` at 100 all get their turn first.
-
-## Why it refuses instead of asking a language model
-
-Routing unmatched questions to an LLM is tempting and, for an infrastructure
-assistant, wrong. It would answer questions it has no evidence for, and a
-confident wrong answer about a storage pool or a BMC is worse than an honest
-"I cannot". This refuses in about the time a real answer takes.
-
-Anything cleverer belongs behind an explicit intent, where the wait is asked
-for rather than sprung.
+That's the whole idea. About eighty lines of Python.
 
 ## Install
 
@@ -73,60 +22,87 @@ for rather than sprung.
 pip install git+https://github.com/thalovant/thalovant-skill-custos-fallback
 ```
 
-Or from a checkout:
+There's nothing to configure. No settings, no network access, no API keys. It
+runs last by design, so it never gets in the way of a skill that *can* help.
 
-```bash
-pip install -e .
-```
+Built for the [Thalovant](https://thalovant.com) Custos appliance, but it
+doesn't need any of it — drop it into any [OpenVoiceOS](https://openvoiceos.org)
+assistant or HiveMind hub and it works.
 
-Nothing to configure. It has no settings, no network access, and no intent
-files — it is reached precisely when nothing else matched.
-
-## Languages
-
-Twenty-four locales, every language OVOS itself supports:
+## Speaks 24 languages
 
 ```
-ca-ES  cs-CZ  da-DK  de-DE  en-US  es-ES  eu-ES  fa-IR  fr-FR  gl-ES
-hu-HU  it-IT  kab    kab-DZ nl-BE  nl-NL  pl-PL  pt-BR  pt-PT  ru-RU
-sv-FI  sv-SE  tr-TR  uk-UA
+Català · Čeština · Dansk · Deutsch · English · Español · Euskara · فارسی
+Français · Galego · Magyar · Italiano · Taqbaylit · Nederlands · Polski
+Português · Русский · Svenska · Türkçe · Українська
 ```
 
-That set is deliberate. A skill booted in a language it has no locale directory
-for **does not fall back to English** — it speaks the dialog's identifier, and
-the room hears the literal string `custos.unknown.request`. So for a
-dialog-only skill an imperfect translation always beats an omitted one.
+Every language OVOS itself supports. There's a good reason for going all the
+way: if a skill has no translation for the language it's running in, OVOS
+*doesn't* quietly fall back to English — it reads the internal message name out
+loud. Your assistant literally says "custos dot unknown dot request" at you. A
+rough translation is always kinder than that.
 
-`en-US` and `fr-FR` are maintained. **The other 22 are machine-authored and
-have not been reviewed by a native speaker** — Kabyle least of all. Corrections
-are the most useful contribution this repository can receive; a pull request
-touching one language's `locale/<lang>/` directory needs no coordination with
-any other.
+Which brings us to an honest note: **English and French are the two we
+maintain. The other 22 were machine-translated and no native speaker has
+checked them.** Kabyle especially. If one of them sounds wrong or just odd,
+[open an issue](https://github.com/thalovant/thalovant-skill-custos-fallback/issues)
+or send a pull request — fixing one language means touching one folder and
+nothing else. It's the most useful thing anyone can contribute here.
+
+## Why not just let an AI answer?
+
+It's tempting. We decided against it.
+
+This started life on an appliance that watches servers and storage, where a
+made-up answer about a failing disk is genuinely worse than no answer at all.
+An honest "I don't know" takes about a second. A language model guessing takes
+longer *and* might be confidently wrong.
+
+If you want your assistant to think hard about something, that should be
+something you asked for on purpose — not a surprise that happens whenever it
+gets confused.
+
+## For the curious: what's actually going on
+
+An utterance that matches no intent produces **no terminal event on the bus at
+all** — so a voice client can't tell "nothing matched" from "still thinking",
+and simply waits out its timeout. Here's a client listening for every ending
+you'd expect (`ovos.intent.unmatched`, `complete_intent_failure`,
+`ovos.utterance.handled`, `speak`, and friends), sending two utterances down
+the same connection to a live hub:
+
+```
+unmatched  "flibbertigibbet wumpus"    nothing arrived in 12 seconds
+matched    "what is the weather"       replied in 1.6 seconds
+```
+
+`ovos-core` does raise `ovos.intent.unmatched` internally, but it doesn't reach
+HiveMind satellite clients the way `speak` does. And the hub is the only place
+that *knows* nothing matched — a client guessing from a list of known intents
+goes stale the moment you install a skill. So: a fallback skill.
+
+It registers at priority **95**, inside the 90–100 last-resort band, so
+personas, LLM fallbacks and `ovos-skill-fallback-unknown` all get asked first.
 
 ## Tests
 
 ```bash
-pip install -e '.[test]' && pytest test/                 # unit
-pip install --pre -e '.[test,e2e]' && pytest test/       # + real ovos-core
+pip install -e '.[test]' && pytest test/                 # fast
+pip install --pre -e '.[test,e2e]' && pytest test/       # + a real ovos-core
 ```
 
-The end-to-end suite boots an actual ovos-core through
-[ovoscope](https://github.com/OpenVoiceOS/ovoscope) and asserts two things the
-unit tests structurally cannot: that the skill *loads*, and that an unmatchable
-utterance produces speech rather than silence — in both maintained locales.
+The end-to-end tests boot an actual assistant via
+[ovoscope](https://github.com/OpenVoiceOS/ovoscope) and check two things the
+unit tests can't: that the skill *loads*, and that an unanswerable question
+produces real speech — in both maintained languages.
 
-That distinction is not academic. `FallbackSkill` declares `can_answer`
-abstract, and an unimplemented abstract method does not merely disable the
-fallback: the class cannot be instantiated, the skill fails to load, and **every
-intent in its package fails with it**. That is why this is its own package
-rather than a handler bolted onto a skill that does real work. It passed unit
-tests once while doing exactly that.
-
-The locale assertion checks the *rendered text*, not just that something was
-spoken — a missing dialog file still emits a perfectly ordinary `speak`
-message, so "did it speak" passes on the exact failure locale coverage exists
-to catch.
+That first one matters more than it sounds. `FallbackSkill` has an abstract
+`can_answer` method, and forgetting it doesn't just disable your fallback: the
+class can't be created, the skill never loads, and **every other intent in the
+same package disappears with it**. That happened to us. It's why this lives in
+its own package instead of being bolted onto a skill that does real work.
 
 ## License
 
-Apache-2.0.
+Apache-2.0 — use it, fork it, ship it.
