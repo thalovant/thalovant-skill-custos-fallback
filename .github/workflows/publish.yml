@@ -1,0 +1,57 @@
+name: publish
+
+# Publishing to PyPI is irreversible per version — a release can be yanked but
+# never replaced — so the whole suite has to pass first, and the tag has to
+# agree with the version in the package.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: tag matches the package version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[test]'
+      - run: pytest test/ --ignore=test/end2end -v
+      - name: compare
+        run: |
+          python - <<'PY'
+          import os, sys
+          from thalovant_skill_custos_fallback.version import __version__
+          tag = os.environ["TAG"].lstrip("v")
+          print(f"tag={tag} package={__version__}")
+          if tag != __version__:
+              sys.exit(f"tag {tag} does not match package version {__version__}")
+          PY
+        env:
+          TAG: ${{ github.event.release.tag_name || github.ref_name }}
+
+  publish:
+    name: publish to PyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/thalovant-skill-custos-fallback
+    permissions:
+      # Trusted Publishing: PyPI verifies this workflow's OIDC identity, so no
+      # API token is stored anywhere. Configure it once at
+      # https://pypi.org/manage/project/thalovant-skill-custos-fallback/settings/publishing/
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1

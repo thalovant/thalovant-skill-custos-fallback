@@ -1,0 +1,80 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    # Fast, stable dependencies only, so this runs on every supported Python.
+    name: unit (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e '.[test]'
+      - run: pytest test/ --ignore=test/end2end -v
+
+  end-to-end:
+    # Boots a real ovos-core through ovoscope. This is the layer that catches a
+    # skill which passes unit tests and cannot be loaded at all — the failure
+    # that once took every intent in a package down with it. It needs
+    # pre-release OVOS intent engines, so it runs on one Python rather than all.
+    name: end-to-end (real ovos-core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --pre -e '.[test,e2e]'
+      - run: pytest test/end2end -v
+
+  package:
+    # A wheel that builds but ships no locale directory speaks dialog
+    # identifiers at people, and nothing else here would notice.
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - name: every locale is in the wheel
+        run: |
+          python - <<'PY'
+          import glob, pathlib, zipfile, sys
+          wheel = sorted(glob.glob("dist/*.whl"))[-1]
+          shipped = {
+              pathlib.PurePosixPath(n).parts[-3]
+              for n in zipfile.ZipFile(wheel).namelist()
+              if n.endswith(".dialog")
+          }
+          on_disk = {
+              p.name
+              for p in pathlib.Path("thalovant_skill_custos_fallback/locale").iterdir()
+              if p.is_dir()
+          }
+          missing = on_disk - shipped
+          print(f"{len(shipped)} locales in {wheel}")
+          if missing:
+              sys.exit(f"locales missing from the wheel: {sorted(missing)}")
+          PY
