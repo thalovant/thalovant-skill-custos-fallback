@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thalovant-skill-custos-fallback"
+dynamic = ["version"]
+description = "Say that nothing matched, instead of leaving the room in silence"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Thalovant", email = "support@thalovant.com" },
+]
+keywords = ["ovos", "skill", "thalovant", "hivemind", "custos", "fallback"]
+requires-python = ">=3.10"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "ovos-utils>=0.8.5",
+    "ovos-workshop>=8.0.0,<10.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-timeout>=2.0.0",
+]
+e2e = [
+    "ovoscope>=1.6.7a1",
+    "ovos-padatious>=2.0.1a1",
+    "ovos-adapt-parser>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/thalovant/thalovant-skill-custos-fallback"
+
+[project.entry-points."opm.skill"]
+"thalovant-skill-custos-fallback.thalovant" = "thalovant_skill_custos_fallback:CustosFallbackSkill"
+
+[project.entry-points."ovos.plugin.skill"]
+"thalovant-skill-custos-fallback.thalovant" = "thalovant_skill_custos_fallback:CustosFallbackSkill"
+
+[tool.setuptools.dynamic]
+version = { attr = "thalovant_skill_custos_fallback.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["thalovant_skill_custos_fallback*"]
+
+[tool.setuptools.package-data]
+thalovant_skill_custos_fallback = ["locale/**/*", "*.json"]

@@ -1,0 +1,8 @@
+[run]
+source = thalovant_skill_custos_query
+omit = */test/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def create_skill

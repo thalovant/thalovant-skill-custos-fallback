@@ -1,0 +1,13 @@
+{
+  "skill_id": "thalovant-skill-custos-fallback",
+  "name": "Custos Fallback",
+  "description": "Answers when no skill could, so an unmatched question ends in a sentence instead of the caller's timeout.",
+  "author": "thalovant",
+  "version": "0.1.0",
+  "homepage": "https://github.com/thalovant/thalovant-skill-custos-fallback",
+  "category": "Configuration",
+  "tags": ["custos", "fallback", "hivemind"],
+  "examples": [
+    "What is the tire pressure on the van?"
+  ]
+}
