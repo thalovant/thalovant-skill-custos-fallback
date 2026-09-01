@@ -24,17 +24,6 @@ gets in the way.
 
 Works with any [OpenVoiceOS](https://openvoiceos.org) assistant.
 
-## Speaks 24 languages
-
-Català · Čeština · Dansk · Deutsch · English · Español · Euskara · فارسی ·
-Français · Galego · Italiano · Magyar · Nederlands · Polski · Português ·
-Русский · Svenska · Taqbaylit · Türkçe · Українська
-
-English and French were written by people. The rest are machine translations
-nobody has checked yet — if yours sounds wrong or strange, please
-[tell us](https://github.com/thalovant/thalovant-skill-custos-fallback/issues).
-It's the most helpful thing you can do here.
-
 ## Anything else
 
 - [How it works](HOW_IT_WORKS.md) — for the curious, and for anyone hacking on it

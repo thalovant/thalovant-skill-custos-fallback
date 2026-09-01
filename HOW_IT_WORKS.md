@@ -46,8 +46,16 @@ back to English. It renders the dialog's identifier, and the room hears the
 literal string `custos.unknown.request`. So for a dialog-only skill, an
 imperfect translation always beats an omitted one.
 
+The 24 are every language OVOS itself supports:
+
+Català · Čeština · Dansk · Deutsch · English · Español · Euskara · فارسی ·
+Français · Galego · Italiano · Magyar · Nederlands · Polski · Português ·
+Русский · Svenska · Taqbaylit · Türkçe · Українська
+
 `en-US` and `fr-FR` are maintained. The other 22 are machine-authored and
-unreviewed — Kabyle least vouched-for of all.
+unreviewed — Kabyle least vouched-for of all. Corrections are the most useful
+contribution this repository can receive, and a pull request touching one
+language's `locale/<lang>/` directory needs no coordination with any other.
 
 ## Why it is its own package
 
