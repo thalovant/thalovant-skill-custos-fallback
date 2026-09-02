@@ -60,16 +60,21 @@ def test_an_utterance_the_message_does_not_carry_is_not_a_crash():
         assert skill.dialogs[-1][0] == "custos.unknown.request"
 
 
-def test_it_runs_after_everything_else():
+def test_it_sits_in_the_last_resort_band_ahead_of_the_stock_unknown_skill():
     priorities = [
         getattr(getattr(CustosFallbackSkill, name), "fallback_priority", None)
         for name in dir(CustosFallbackSkill)
         if hasattr(getattr(CustosFallbackSkill, name, None), "fallback_priority")
     ]
     assert priorities, "the handler carries no priority"
-    # 90-100 is the last-resort band: anything installed later, including a
-    # persona or the stock unknown-request skill at 100, gets its turn first.
-    assert 90 <= priorities[0] <= 100, f"priority {priorities[0]} is not last-resort"
+    # ovos-core's low band is FallbackRange(90, 101), matched as start < p <=
+    # stop, so 90 itself belongs to the medium band and runs a whole pipeline
+    # stage earlier than last resort. Lower numbers run first within a band,
+    # and only the lowest one whose can_answer said yes fires — so this must
+    # land below the stock unknown-request skill at 100 to be the message the
+    # room hears when both are installed.
+    assert 90 < priorities[0] <= 100, f"priority {priorities[0]} is not last-resort"
+    assert priorities[0] < 100, "the stock unknown-request skill at 100 would speak instead"
 
 
 def test_can_answer_is_unconditional():

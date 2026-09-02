@@ -58,7 +58,7 @@ class CustosFallbackSkill(FallbackSkill):
         A fallback that reports nothing could handle the request is exactly
         the case where every more capable skill has already declined. There
         is no utterance this cannot respond to, and priority — not this — is
-        what keeps it last.
+        what decides where it stands in the queue.
         """
         return True
 
@@ -66,9 +66,16 @@ class CustosFallbackSkill(FallbackSkill):
     def handle_unknown_request(self, message):
         """The hub answering, rather than the caller timing out.
 
-        90-100 is the band that runs after every intent match and every other
-        fallback, so anything installed later — a persona, a language model,
-        the stock unknown-request skill at 100 — still gets its turn first.
+        Lower numbers run first. ovos-core consults its fallbacks in three
+        bands — high (1-5), medium (6-90) and low (91-100) — each a separate
+        pipeline stage, and the low band this sits in is normally the last
+        stage of all, after every intent matcher and the other two bands.
+        Inside a band exactly one skill fires: the lowest number whose
+        can_answer said yes. So at 95 this speaks ahead of the stock
+        unknown-request skill at 100, on purpose — with both installed it is
+        this message the room hears. The flip side is that a chat or
+        language-model fallback registered below 95 would win every
+        unmatched utterance, which is the intended way to pre-empt this.
         """
         utterance = ""
         try:

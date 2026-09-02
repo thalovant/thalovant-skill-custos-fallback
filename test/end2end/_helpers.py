@@ -9,7 +9,10 @@ which takes every intent in its package down with it. That happened once.
 Assertions are deliberately drift-immune, matching the sibling skills: rather
 than pinning an ordered message sequence (which breaks on bus-vocabulary
 changes like the ``speak`` -> ``ovos.utterance.speak`` rename), each test
-asserts only that the skill spoke.
+asserts that the skill spoke and that what it spoke is a line of its own
+dialog file. The second half is not optional here — a missing locale still
+produces a perfectly ordinary ``speak`` carrying the raw dialog name, so "did
+it speak" alone would pass on the exact failure this suite exists to catch.
 """
 
 from pathlib import Path

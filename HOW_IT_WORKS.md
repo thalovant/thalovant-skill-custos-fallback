@@ -26,9 +26,20 @@ copy of the hub's capabilities that goes stale the moment a skill is installed.
 
 ## Priority
 
-Registered at **95**, inside the 90–100 last-resort band, so intent matches,
-personas, LLM fallbacks and `ovos-skill-fallback-unknown` (priority 100) all
-get their turn first.
+Registered at **95**. OVOS runs the *lowest* fallback number first, and
+`ovos-core` consults fallbacks in three bands — high (1–5), medium (6–90) and
+low (91–100) — each a separate pipeline stage. The low band this skill sits in
+is normally the last stage of all, after every intent matcher and the two
+other bands. Inside a band exactly one skill fires: the lowest number whose
+`can_answer` said yes.
+
+So at 95 this speaks **ahead of** `ovos-skill-fallback-unknown` (priority
+100), on purpose: with both installed, it is this message the room hears, not
+the stock one. The flip side is that anything meant to pre-empt it has to
+register below 95 — a chat or language-model fallback at, say, 91 would win
+every unmatched utterance. Personas are not fallback skills at all but
+pipeline stages, so where they run is decided by the session's pipeline order,
+not by this number.
 
 ## Why it refuses instead of asking a language model
 
@@ -39,23 +50,26 @@ refusal costs about a second; a model guessing costs longer and may mislead.
 Deliberate thinking belongs behind an explicit intent, where the wait was asked
 for rather than sprung on someone.
 
-## Why 24 languages
+## Why 24 locales
 
 A skill booted in a language it has no locale directory for does **not** fall
 back to English. It renders the dialog's identifier, and the room hears the
 literal string `custos.unknown.request`. So for a dialog-only skill, an
 imperfect translation always beats an omitted one.
 
-The 24 are every language OVOS itself supports:
+The 24 locale directories are every language OVOS itself supports: twenty
+languages, four of them in two regional spellings — Dutch, Portuguese,
+Swedish and Kabyle:
 
 Català · Čeština · Dansk · Deutsch · English · Español · Euskara · فارسی ·
 Français · Galego · Italiano · Magyar · Nederlands · Polski · Português ·
 Русский · Svenska · Taqbaylit · Türkçe · Українська
 
-`en-US` and `fr-FR` are maintained. The other 22 are machine-authored and
-unreviewed — Kabyle least vouched-for of all. Corrections are the most useful
-contribution this repository can receive, and a pull request touching one
-language's `locale/<lang>/` directory needs no coordination with any other.
+`en-US` and `fr-FR` are maintained. The other 22 directories are
+machine-authored and unreviewed — Kabyle least vouched-for of all. Corrections
+are the most useful contribution this repository can receive, and a pull
+request touching one language's `locale/<lang>/` directory needs no
+coordination with any other.
 
 ## Why it is its own package
 
@@ -70,14 +84,19 @@ Isolated here, the worst a bug in this file can do is stop the apology.
 ## Tests
 
 ```bash
-pip install -e '.[test]' && pytest test/                 # fast
-pip install --pre -e '.[test,e2e]' && pytest test/       # + a real ovos-core
+pip install -e '.[test]' && pytest test/ --ignore=test/end2end   # fast
+pip install --pre -e '.[test,e2e]' && pytest test/                # + a real ovos-core
 ```
 
-Both run in CI on every push: the unit suite across Python 3.10-3.13, the
-end-to-end suite on one of them, and a packaging job that builds the wheel and
-checks every locale directory is actually inside it — a wheel missing one
-speaks dialog identifiers at people, and nothing else here would notice.
+The fast form has to skip `test/end2end`: that directory imports ovoscope at
+collection time, so without the `e2e` extra a bare `pytest test/` stops before
+running anything.
+
+Both run in CI on every pull request and every push to main: the unit suite across
+Python 3.10-3.13, the end-to-end suite on one of them, and a packaging job that
+builds the wheel and checks every locale directory is actually inside it — a
+wheel missing one speaks dialog identifiers at people, and nothing else here
+would notice.
 
 The end-to-end suite boots an actual ovos-core through
 [ovoscope](https://github.com/OpenVoiceOS/ovoscope) and asserts two things the

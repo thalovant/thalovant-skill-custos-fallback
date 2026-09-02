@@ -1,5 +1,5 @@
 [run]
-source = thalovant_skill_custos_query
+source = thalovant_skill_custos_fallback
 omit = */test/*
 
 [report]

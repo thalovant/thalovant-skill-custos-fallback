@@ -1,11 +1,11 @@
 """Per-worker XDG isolation for the ovoscope e2e suite.
 
-Every MiniCroft boots against the default XDG paths — racing to create the same
-Padatious cache / identity directories (FileExistsError) and, for this skill,
-sharing the persistent shadow store between tests. Give each pytest worker (and
-the non-xdist run) its own private XDG tree so those writes never collide and
-every test starts from an empty shadow. Keyed off PYTEST_XDIST_WORKER so it
-works whether or not xdist is installed.
+Every MiniCroft boots against the default XDG paths, racing to create the same
+Padatious cache / identity directories (FileExistsError). This skill keeps no
+store of its own, so that race is the whole reason: give each pytest worker
+(and the non-xdist run) its own private XDG tree so those writes never
+collide. Keyed off PYTEST_XDIST_WORKER so it works whether or not xdist is
+installed.
 """
 
 import os
