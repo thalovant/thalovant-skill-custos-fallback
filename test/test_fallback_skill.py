@@ -60,7 +60,7 @@ def test_an_utterance_the_message_does_not_carry_is_not_a_crash():
         assert skill.dialogs[-1][0] == "custos.unknown.request"
 
 
-def test_it_sits_in_the_last_resort_band_ahead_of_the_stock_unknown_skill():
+def test_it_sits_at_the_very_end_of_the_last_resort_band():
     priorities = [
         getattr(getattr(CustosFallbackSkill, name), "fallback_priority", None)
         for name in dir(CustosFallbackSkill)
@@ -70,11 +70,25 @@ def test_it_sits_in_the_last_resort_band_ahead_of_the_stock_unknown_skill():
     # ovos-core's low band is FallbackRange(90, 101), matched as start < p <=
     # stop, so 90 itself belongs to the medium band and runs a whole pipeline
     # stage earlier than last resort. Lower numbers run first within a band,
-    # and only the lowest one whose can_answer said yes fires — so this must
-    # land below the stock unknown-request skill at 100 to be the message the
-    # room hears when both are installed.
+    # and only the lowest one whose can_answer said yes fires.
     assert 90 < priorities[0] <= 100, f"priority {priorities[0]} is not last-resort"
-    assert priorities[0] < 100, "the stock unknown-request skill at 100 would speak instead"
+    # And at the very end of it. `can_answer` here is unconditionally True, so
+    # this number is the whole of the skill's politeness: anything it runs
+    # ahead of is a skill that never speaks.
+    #
+    # This used to assert `< 100`, to beat the stock unknown-request skill at
+    # 100. That trade was measured and reversed: the stock skill is installed
+    # nowhere in this estate, while nine siblings register fallbacks at 96-99
+    # -- joke-garden, guide, learning-lounge, language-buddy, local-pulse,
+    # memory, ops-copilot, safety-guide, source-scout -- and at 95 this
+    # silenced all of them. "What can you help me with today" answered "I
+    # cannot answer that" with the guide skill sat behind it holding the list.
+    # If the stock skill ever does turn up, the fix is not to install a second
+    # skill whose whole job is saying it does not know.
+    assert priorities[0] == 100, (
+        f"priority {priorities[0]} runs ahead of sibling fallbacks at 96-99, "
+        "which then never speak"
+    )
 
 
 def test_can_answer_is_unconditional():
