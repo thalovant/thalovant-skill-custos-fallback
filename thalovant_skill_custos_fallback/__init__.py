@@ -62,20 +62,31 @@ class CustosFallbackSkill(FallbackSkill):
         """
         return True
 
-    @fallback_handler(priority=95)
+    @fallback_handler(priority=100)
     def handle_unknown_request(self, message):
-        """The hub answering, rather than the caller timing out.
+        """The hub answering, rather than the caller timing out. Last.
 
         Lower numbers run first. ovos-core consults its fallbacks in three
         bands — high (1-5), medium (6-90) and low (91-100) — each a separate
-        pipeline stage, and the low band this sits in is normally the last
-        stage of all, after every intent matcher and the other two bands.
-        Inside a band exactly one skill fires: the lowest number whose
-        can_answer said yes. So at 95 this speaks ahead of the stock
-        unknown-request skill at 100, on purpose — with both installed it is
-        this message the room hears. The flip side is that a chat or
-        language-model fallback registered below 95 would win every
-        unmatched utterance, which is the intended way to pre-empt this.
+        pipeline stage, and the low band this sits in is the last stage of
+        all, after every intent matcher and the other two bands. Inside a band
+        exactly one skill fires: the lowest number whose can_answer said yes.
+
+        `can_answer` here is unconditionally True, so this skill's number is
+        the whole of its politeness. **It was 95, and that was wrong.** Nine
+        sibling skills register fallbacks between 96 and 99 — joke-garden,
+        guide, learning-lounge, language-buddy, local-pulse, memory,
+        ops-copilot, safety-guide, source-scout — and every one of them was
+        unreachable while this answered first. Asked "what can you help me
+        with today", a hub with both installed said "I cannot answer that"
+        while the guide skill sat behind it holding the list. Worse, weather
+        and date-time register at 95 too, so which of the three spoke came
+        down to sort stability.
+
+        100 is the end of the band and behind every sibling, which is what
+        "every more capable skill has already declined" was supposed to mean.
+        A chat or language-model fallback registered anywhere below this still
+        pre-empts it, which remains the intended way to replace this message.
         """
         utterance = ""
         try:
