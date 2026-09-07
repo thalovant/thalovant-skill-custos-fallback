@@ -18,7 +18,13 @@ it speak" alone would pass on the exact failure this suite exists to catch.
 from pathlib import Path
 
 from ovos_utils.log import LOG
-from ovoscope import CaptureSession, get_minicroft, make_session, make_utterance_message
+from ovoscope import (
+    FALLBACK_PIPELINE,
+    CaptureSession,
+    get_minicroft,
+    make_session,
+    make_utterance_message,
+)
 
 SKILL_ID = "thalovant-skill-custos-fallback.thalovant"
 DIALOG_NAME = "custos.unknown.request"
@@ -51,6 +57,13 @@ class FallbackFiringMixin:
     def _capture(self, utterance: str):
         session = make_session(
             session_id=f"custos-fallback-{self.LANG}-{abs(hash(utterance))}",
+            # Named, not defaulted. ovoscope's default session pipeline is not
+            # a promise: it stopped carrying the fallback stages, and a skill
+            # that only ever runs as a fallback then answered nothing while
+            # still loading cleanly -- the suite went red saying the silence
+            # this skill exists to end had returned, when what had actually
+            # changed was the harness around it.
+            pipeline=list(FALLBACK_PIPELINE),
             blacklisted_intents=[],
             blacklisted_skills=[],
             lang=self.LANG,
