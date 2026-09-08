@@ -29,73 +29,55 @@ worse than an honest "I cannot".
 
 from __future__ import annotations
 
-from ovos_utils import classproperty
 from ovos_utils.log import LOG
-from ovos_utils.process_utils import RuntimeRequirements
-from ovos_workshop.decorators import fallback_handler
-from ovos_workshop.skills import FallbackSkill
+
+from thalovant_skillkit.skill import ThalovantFallbackSkill
 
 
-class CustosFallbackSkill(FallbackSkill):
-    """Say that nothing matched, instead of leaving the room in silence."""
+class CustosFallbackSkill(ThalovantFallbackSkill):
+    """Say that nothing matched, instead of leaving the room in silence.
 
-    @classproperty
-    def runtime_requirements(self):
-        # Speaking a refusal needs nothing: no network, no node, no internet.
-        # This must work precisely when the rest of the appliance does not.
-        return RuntimeRequirements(
-            internet_before_load=False,
-            network_before_load=False,
-            requires_internet=False,
-            requires_network=False,
-            no_internet_fallback=True,
-            no_network_fallback=True,
-        )
+    Lower numbers run first. ovos-core consults its fallbacks in three bands --
+    high (1-5), medium (6-90) and low (91-100) -- each a separate pipeline
+    stage, and the low band this sits in is the last stage of all, after every
+    intent matcher and the other two bands. Inside a band exactly one skill
+    fires: the lowest number whose can_answer said yes.
+
+    `can_answer` here is unconditionally True, so this skill's number is the
+    whole of its politeness. **It was 95, and that was wrong.** Nine sibling
+    skills register fallbacks between 96 and 99 -- joke-garden, guide,
+    learning-lounge, language-buddy, local-pulse, memory, ops-copilot,
+    safety-guide, source-scout -- and every one of them was unreachable while
+    this answered first. Asked "what can you help me with today", a hub with
+    both installed said "I cannot answer that" while the guide skill sat behind
+    it holding the list. Worse, weather and date-time register at 95 too, so
+    which of the three spoke came down to sort stability.
+
+    100 is the end of the band and behind every sibling, which is what "every
+    more capable skill has already declined" was supposed to mean. A chat or
+    language-model fallback registered anywhere below this still pre-empts it,
+    which remains the intended way to replace this message.
+
+    Speaking a refusal needs nothing: no network, no node, no internet. This
+    must work precisely when the rest of the appliance does not, which is why
+    none of the REQUIRES_* attributes is set.
+    """
+
+    FALLBACK_PRIORITY = 100
 
     def can_answer(self, message) -> bool:
         """Always, because saying so is the answer.
 
         A fallback that reports nothing could handle the request is exactly
         the case where every more capable skill has already declined. There
-        is no utterance this cannot respond to, and priority — not this — is
+        is no utterance this cannot respond to, and priority -- not this -- is
         what decides where it stands in the queue.
         """
         return True
 
-    @fallback_handler(priority=100)
-    def handle_unknown_request(self, message):
-        """The hub answering, rather than the caller timing out. Last.
-
-        Lower numbers run first. ovos-core consults its fallbacks in three
-        bands — high (1-5), medium (6-90) and low (91-100) — each a separate
-        pipeline stage, and the low band this sits in is the last stage of
-        all, after every intent matcher and the other two bands. Inside a band
-        exactly one skill fires: the lowest number whose can_answer said yes.
-
-        `can_answer` here is unconditionally True, so this skill's number is
-        the whole of its politeness. **It was 95, and that was wrong.** Nine
-        sibling skills register fallbacks between 96 and 99 — joke-garden,
-        guide, learning-lounge, language-buddy, local-pulse, memory,
-        ops-copilot, safety-guide, source-scout — and every one of them was
-        unreachable while this answered first. Asked "what can you help me
-        with today", a hub with both installed said "I cannot answer that"
-        while the guide skill sat behind it holding the list. Worse, weather
-        and date-time register at 95 too, so which of the three spoke came
-        down to sort stability.
-
-        100 is the end of the band and behind every sibling, which is what
-        "every more capable skill has already declined" was supposed to mean.
-        A chat or language-model fallback registered anywhere below this still
-        pre-empts it, which remains the intended way to replace this message.
-        """
-        utterance = ""
-        try:
-            utterances = (message.data or {}).get("utterances") or []
-            utterance = str(utterances[0]) if utterances else ""
-        except (AttributeError, IndexError, TypeError):
-            utterance = ""
+    def reply(self, utterance: str, lang: str, context: dict) -> str:
+        """The hub answering, rather than the caller timing out."""
         # What people ask and this hub cannot answer is the list of skills
         # worth writing next, and nothing else records it.
         LOG.info("custos fallback: nothing matched %r", utterance)
-        self.speak_dialog("custos.unknown.request")
-        return True
+        return self.dialog("custos.unknown.request", lang)

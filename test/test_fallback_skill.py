@@ -24,9 +24,14 @@ class HarnessSkill(CustosFallbackSkill):
 
 def make_skill():
     skill = HarnessSkill.__new__(HarnessSkill)
-    skill.dialogs = []
-    skill.speak_dialog = lambda name, data=None: skill.dialogs.append((name, data))
+    skill.said = []
+    skill.speak = lambda text, *a, **k: skill.said.append(text)
     return skill
+
+
+def _dialog_lines():
+    path = LOCALE / "en-US" / "dialog" / "custos.unknown.request.dialog"
+    return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def test_the_skill_instantiates_as_a_fallback_skill():
@@ -43,11 +48,11 @@ def test_the_skill_instantiates_as_a_fallback_skill():
 
 def test_it_answers_rather_than_leaving_the_room_silent():
     skill = make_skill()
-    handled = skill.handle_unknown_request(
+    handled = skill.handle_fallback(
         Message("recognizer_loop:utterance", {"utterances": ["flibbertigibbet wumpus"]})
     )
     assert handled is True, "returning False lets the caller time out anyway"
-    assert skill.dialogs[-1][0] == "custos.unknown.request"
+    assert skill.said[-1] in _dialog_lines()
 
 
 def test_an_utterance_the_message_does_not_carry_is_not_a_crash():
@@ -55,23 +60,25 @@ def test_an_utterance_the_message_does_not_carry_is_not_a_crash():
     # caller waiting out its timeout, which is the failure this exists to end.
     skill = make_skill()
     for payload in ({}, {"utterances": []}, {"utterances": None}, None):
-        skill.dialogs.clear()
-        assert skill.handle_unknown_request(Message("x", payload)) is True
-        assert skill.dialogs[-1][0] == "custos.unknown.request"
+        skill.said.clear()
+        assert skill.handle_fallback(Message("x", payload)) is True
+        assert skill.said[-1] in _dialog_lines()
+
+
+def test_the_showroom_gets_the_same_answer_without_anything_spoken():
+    # The preview bridge beside the hub calls this over the skill API. It comes
+    # from the same reply() the fallback speaks, so the two cannot drift.
+    skill = make_skill()
+    assert skill.preview_reply("flibbertigibbet wumpus", "en-US") in _dialog_lines()
+    assert skill.said == []
 
 
 def test_it_sits_at_the_very_end_of_the_last_resort_band():
-    priorities = [
-        getattr(getattr(CustosFallbackSkill, name), "fallback_priority", None)
-        for name in dir(CustosFallbackSkill)
-        if hasattr(getattr(CustosFallbackSkill, name, None), "fallback_priority")
-    ]
-    assert priorities, "the handler carries no priority"
     # ovos-core's low band is FallbackRange(90, 101), matched as start < p <=
     # stop, so 90 itself belongs to the medium band and runs a whole pipeline
     # stage earlier than last resort. Lower numbers run first within a band,
     # and only the lowest one whose can_answer said yes fires.
-    assert 90 < priorities[0] <= 100, f"priority {priorities[0]} is not last-resort"
+    assert 90 < CustosFallbackSkill.FALLBACK_PRIORITY <= 100
     # And at the very end of it. `can_answer` here is unconditionally True, so
     # this number is the whole of the skill's politeness: anything it runs
     # ahead of is a skill that never speaks.
@@ -85,10 +92,12 @@ def test_it_sits_at_the_very_end_of_the_last_resort_band():
     # cannot answer that" with the guide skill sat behind it holding the list.
     # If the stock skill ever does turn up, the fix is not to install a second
     # skill whose whole job is saying it does not know.
-    assert priorities[0] == 100, (
-        f"priority {priorities[0]} runs ahead of sibling fallbacks at 96-99, "
-        "which then never speak"
+    assert CustosFallbackSkill.FALLBACK_PRIORITY == 100, (
+        "anything below 100 runs ahead of sibling fallbacks at 96-99, which then never speak"
     )
+    # An operator override in settings is honoured only inside the band; the
+    # skill must still resolve to 100 when there is none.
+    assert make_skill().fallback_priority() == 100
 
 
 def test_can_answer_is_unconditional():
