@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "thalovant-skillkit[skill]>=0.4.2",
+    "thalovant-skillkit[skill]>=0.4.3",
     "ovos-utils>=0.8.5",
     "ovos-workshop>=8.0.0,<10.0.0",
 ]
