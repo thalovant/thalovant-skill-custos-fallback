@@ -1,0 +1,30 @@
+# Every Thalovant skill's intents are trained into one classifier per language
+# on the hub, so a sentence this skill publishes must not already be another
+# skill's: one of the two would answer and the other's line would never fire,
+# and neither skill's own suite can see it, because each loads one skill.
+#
+# The fleet's model on the Hugging Face Hub carries an index of every sentence
+# every skill publishes, and the classifier itself. It is public, so this needs
+# no token. A sentence this change claims from another skill fails, annotated
+# on its line; a collision the fleet already carries is reported without
+# failing, and a sentence the classifier reads as another skill's warns.
+name: Intent collisions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  intents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install "thalovant-skillkit>=0.8.1"
+      - run: thalovant-skillkit check --fleet-only
