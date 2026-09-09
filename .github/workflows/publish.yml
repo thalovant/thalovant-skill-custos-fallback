@@ -43,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-python@v5
