@@ -1,12 +1,23 @@
 name: Release
 
-# Pushing a vX.Y.Z tag (or dispatching with one) builds this skill's wheel at
-# that tag and uploads it to the Thalovant API, which files it in the private
-# index thalovant/skill-index and records the version on the marketplace
-# skill. The logic lives in the reusable workflow so every skill releases the
-# same way. The one secret, inherited from this repository or the
-# organisation (skill-index/docs/SETUP.md):
+# This repository is public, and GitHub does not let a public repository call a
+# private reusable workflow, so the shared job cannot be referenced from here.
+# This file is an inline copy of the job in
+#   thalovant/skill-index/.github/workflows/release-skill.yml@bc7ea293ca84b3f1e381cc2e8add3ba11681d660
+# with the workflow_call inputs replaced by their defaults. Keep it in sync with
+# that file: a change to the shared workflow has to be copied here by hand.
+#
+# Pushing a vX.Y.Z tag (or dispatching with one) runs this skill's test suite
+# and the fleet intent-collision check, builds the wheel at that tag, checks the
+# tag equals the wheel's version, and hands the wheel to the Thalovant API,
+# which files it in thalovant/skill-index (wheels/<package>/, immutable),
+# regenerates index.html, and records the version on the marketplace skill.
+# The one secret, from this repository or the organisation
+# (skill-index/docs/SETUP.md):
 #   THALOVANT_RELEASE_TOKEN  API token with hubs:read + hubs:write
+#
+# The channel follows the tag: a PEP 440 pre-release (v1.2.3a1, b2, rc1, .dev)
+# publishes to alpha, a final version to stable.
 
 on:
   push:
@@ -23,7 +34,313 @@ permissions:
 
 jobs:
   release:
-    uses: thalovant/skill-index/.github/workflows/release-skill.yml@bc7ea293ca84b3f1e381cc2e8add3ba11681d660 # main
-    with:
-      tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-    secrets: inherit
+    name: Build and publish
+    runs-on: ubuntu-latest
+    env:
+      API_BASE: https://api.thalovant.com
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Check the inputs this run needs
+        env:
+          THALOVANT_RELEASE_TOKEN: ${{ secrets.THALOVANT_RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${THALOVANT_RELEASE_TOKEN}" ]; then
+            echo "::error::THALOVANT_RELEASE_TOKEN is empty. It must reach this repository as a repository or organisation secret; see docs/SETUP.md in thalovant/skill-index."
+            exit 1
+          fi
+          case "${RELEASE_TAG}" in
+            v[0-9]*) echo "Releasing ${RELEASE_TAG}" ;;
+            *) echo "::error::'${RELEASE_TAG}' is not a vX.Y.Z tag"; exit 1 ;;
+          esac
+
+      - name: Check out the skill at the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build packaging uv
+
+      - name: Run the skill's test suite
+        env:
+          TEST_EXTRAS: auto
+          TEST_COMMAND: "pytest -q --ignore-glob='*end2end*' --ignore-glob='*e2e*'"
+        run: |
+          set -euo pipefail
+          extras="${TEST_EXTRAS}"
+          if [ "${extras}" = "auto" ]; then
+            # Mirror the skill's own CI: its test.yml / unit_tests.yml either
+            # installs `.[test]` or plain `.` plus pytest. Repos that declare a
+            # test extra their CI never installs (ovoscope suites) must not be
+            # held to tests they do not run themselves.
+            # The extra may live in pyproject.toml or setup.py; uv only warns
+            # when it does not exist, so asking for it is always safe.
+            extras=""
+            if grep -rqsE '\[test\]' .github/workflows/; then
+              extras="test"
+            fi
+          fi
+          venv="${RUNNER_TEMP}/release-venv"
+          uv venv --quiet --python "$(command -v python)" "${venv}"
+          spec="."
+          if [ -n "${extras}" ]; then
+            spec=".[${extras}]"
+          fi
+          echo "installing -e ${spec} into ${venv}"
+          uv pip install --quiet --python "${venv}/bin/python" -e "${spec}" pytest
+          # shellcheck disable=SC1091
+          . "${venv}/bin/activate"
+          set +e
+          eval "${TEST_COMMAND}"
+          rc=$?
+          set -e
+          if [ "${rc}" -eq 5 ]; then
+            echo "::warning::pytest collected no tests; the release gate has nothing to check"
+          elif [ "${rc}" -ne 0 ]; then
+            echo "::error::the test suite failed (exit ${rc}); the release is aborted before any upload"
+            exit "${rc}"
+          fi
+
+      - name: Check the intents against the fleet
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet "thalovant-skillkit>=0.8.1"
+          # Fails on a sentence this skill claims from another skill (the fleet
+          # trains one classifier per language); an unreachable fleet model
+          # fails too, so a collision can never slip through unseen.
+          thalovant-skillkit check --fleet-only
+
+      - name: Build the wheel
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          python -m build --wheel --outdir dist
+          count=$(find dist -maxdepth 1 -name '*.whl' | wc -l)
+          if [ "${count}" != "1" ]; then
+            echo "::error::expected exactly one wheel in dist/, found ${count}"
+            ls -l dist
+            exit 1
+          fi
+
+      - name: Validate the wheel against the tag
+        id: wheel
+        env:
+          PACKAGE: ""
+          CHANNEL_OVERRIDE: ""
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import hashlib, os, sys
+          from pathlib import Path
+          from packaging.utils import InvalidWheelFilename, canonicalize_name, parse_wheel_filename
+          from packaging.version import InvalidVersion, Version
+
+          def fail(message):
+              print(f"::error::{message}", file=sys.stderr)
+              sys.exit(1)
+
+          wheel = next(Path("dist").glob("*.whl"))
+          tag = os.environ["RELEASE_TAG"]
+          expected = os.environ.get("PACKAGE", "")
+          try:
+              name, _version, _build, _tags = parse_wheel_filename(wheel.name)
+          except InvalidWheelFilename as exc:
+              fail(f"{wheel.name}: {exc}")
+          version_text = wheel.name.split("-")[1]
+          try:
+              if str(Version(version_text)) != version_text:
+                  fail(f"wheel version {version_text!r} is not canonical PEP 440 (expected {Version(version_text)})")
+          except InvalidVersion as exc:
+              fail(str(exc))
+          if tag != f"v{version_text}":
+              fail(f"tag {tag} does not match the built wheel version {version_text}; bump the package version (or fix the tag) and release again")
+          if expected and canonicalize_name(expected) != name:
+              fail(f"inputs.package {expected!r} canonicalises to {canonicalize_name(expected)!r} but the wheel is for {name!r}")
+          # Channel from the tag shape unless the caller overrides it: a
+          # pre-release (a/b/rc/dev) is alpha, a final version is stable.
+          channel = os.environ.get("CHANNEL_OVERRIDE", "").strip().lower()
+          if not channel:
+              channel = "alpha" if Version(version_text).is_prerelease else "stable"
+          print(f"channel={channel}")
+          print(f"package={name}")
+          print(f"version={version_text}")
+          print(f"filename={wheel.name}")
+          print(f"path={wheel}")
+          print(f"sha256={hashlib.sha256(wheel.read_bytes()).hexdigest()}")
+          PY
+
+      - name: Read the changelog from the tag message or the GitHub release
+        id: changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          text=$(git for-each-ref "refs/tags/${RELEASE_TAG}" --format='%(contents)' | sed -e '/^-----BEGIN PGP SIGNATURE-----$/,$d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+          if [ -z "${text}" ]; then
+            text=$(gh api "repos/${REPO}/releases/tags/${RELEASE_TAG}" --jq '.body // ""' 2>/dev/null || true)
+          fi
+          {
+            echo "text<<CHANGELOG_EOF"
+            printf '%s\n' "${text}" | head -c 8000
+            echo
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish the wheel through the marketplace API
+        env:
+          THALOVANT_RELEASE_TOKEN: ${{ secrets.THALOVANT_RELEASE_TOKEN }}
+          PACKAGE: ${{ steps.wheel.outputs.package }}
+          VERSION: ${{ steps.wheel.outputs.version }}
+          WHEEL_PATH: ${{ steps.wheel.outputs.path }}
+          WHEEL_SHA256: ${{ steps.wheel.outputs.sha256 }}
+          SLUG: ${{ steps.wheel.outputs.package }}
+          CHANNEL: ${{ steps.wheel.outputs.channel }}
+          CHANGELOG: ${{ steps.changelog.outputs.text }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, sys, time, urllib.error, urllib.request, uuid
+          from pathlib import Path
+
+          api = os.environ["API_BASE"].rstrip("/")
+          token = os.environ["THALOVANT_RELEASE_TOKEN"]
+          package, version = os.environ["PACKAGE"], os.environ["VERSION"]
+          slug, channel = os.environ["SLUG"], os.environ["CHANNEL"]
+          changelog = os.environ.get("CHANGELOG", "").strip()
+          wheel = Path(os.environ["WHEEL_PATH"])
+          expected_sha = os.environ["WHEEL_SHA256"]
+
+          def request(method, path, body=None, content_type=None):
+              headers = {"User-Agent": "thalovant-skill-release/1 (GitHub Actions; +https://github.com/thalovant/skill-index)", "Authorization": f"Bearer {token}", "Accept": "application/json"}
+              if content_type:
+                  headers["Content-Type"] = content_type
+              req = urllib.request.Request(api + path, data=body, method=method, headers=headers)
+              try:
+                  with urllib.request.urlopen(req, timeout=300) as resp:
+                      raw = resp.read()
+                      return resp.status, (json.loads(raw) if raw else None)
+              except urllib.error.HTTPError as exc:
+                  raw = exc.read()
+                  try:
+                      return exc.code, json.loads(raw)
+                  except ValueError:
+                      return exc.code, raw.decode(errors="replace")
+
+          def multipart(fields, file_field, path):
+              boundary = f"----thalovant-{uuid.uuid4().hex}"
+              parts = []
+              for key, value in fields.items():
+                  parts.append(
+                      f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n".encode()
+                      + str(value).encode() + b"\r\n"
+                  )
+              parts.append(
+                  f"--{boundary}\r\nContent-Disposition: form-data; name=\"{file_field}\"; "
+                  f"filename=\"{path.name}\"\r\nContent-Type: application/octet-stream\r\n\r\n".encode()
+                  + path.read_bytes() + b"\r\n"
+              )
+              parts.append(f"--{boundary}--\r\n".encode())
+              return b"".join(parts), f"multipart/form-data; boundary={boundary}"
+
+          def curl_for(skill_id):
+              parts = [f"-F version={version}", f"-F channel={channel}"]
+              if changelog:
+                  parts.append("-F changelog=@CHANGELOG.txt")
+              parts.append(f"-F wheel=@{wheel.name}")
+              return (
+                  f"curl -sS -X POST {api}/v1/marketplace/skills/{skill_id}/versions "
+                  "-H 'Authorization: Bearer $THALOVANT_RELEASE_TOKEN' " + " ".join(parts)
+              )
+
+          def warn_not_in_marketplace(detail):
+              print(f"::warning::{package} {version} was built but not published: {detail}")
+              print("Add the skill to the marketplace (catalog/catalog.yaml in thalovant-api, or "
+                    f"POST {api}/v1/marketplace/skills), then publish the wheel by hand:")
+              print(curl_for("<marketplace_skill_id>"))
+
+          # The versions endpoint is keyed by the skill's UUID; the slug is its
+          # skill_id, so resolve it from the list first.
+          status, skills = request("GET", "/v1/marketplace/skills?include_inactive=true")
+          if status in (401, 403):
+              sys.exit(f"::error::marketplace list returned {status}: token lacks hubs:read/hubs:write or is invalid: {skills}")
+          if status != 200:
+              sys.exit(f"::error::marketplace list returned {status}: {skills}")
+          rows = skills.get("data", []) if isinstance(skills, dict) else []
+          matches = [r for r in rows if r.get("skill_id") == slug] or \
+                    [r for r in rows if (r.get("package_name") or "") == package]
+          if not matches:
+              warn_not_in_marketplace(f"no marketplace skill with skill_id={slug!r} or package_name={package!r}")
+              sys.exit(0)
+          skill_id = matches[0]["id"]
+
+          fields = {"version": version, "channel": channel}
+          if changelog:
+              fields["changelog"] = changelog
+          body, content_type = multipart(fields, "wheel", wheel)
+          status, resp = request("POST", f"/v1/marketplace/skills/{skill_id}/versions", body, content_type)
+          published_now = status == 201
+          if status == 201:
+              print(f"published {package} {version} on channel {channel} as marketplace skill {skill_id}")
+              if isinstance(resp, dict):
+                  got = resp.get("sha256")
+                  if got and got != expected_sha:
+                      sys.exit(f"::error::API stored sha256 {got} but the built wheel is {expected_sha}")
+          elif status == 404:
+              warn_not_in_marketplace(f"POST returned 404: {resp}")
+              sys.exit(0)
+          elif status == 409:
+              idempotent = isinstance(resp, dict) and bool(
+                  resp.get("idempotent") or (isinstance(resp.get("detail"), dict) and resp["detail"].get("idempotent"))
+              )
+              if idempotent:
+                  print(f"::warning::{package} {version} was already published with identical contents; nothing to do ({resp})")
+              else:
+                  sys.exit(f"::error::{package} {version} already exists in the index and wheels are immutable; bump the version and release again ({resp})")
+          elif status == 422:
+              detail = resp.get("detail") if isinstance(resp, dict) else resp
+              sys.exit(f"::error::marketplace rejected the release (422): {detail}")
+          elif 400 <= status < 500:
+              sys.exit(f"::error::marketplace refused the release ({status}): {resp}")
+          else:
+              print(curl_for(skill_id))
+              sys.exit(f"::error::marketplace returned {status}: {resp}")
+
+          # The API inserts the version row after pushing the index, so it is
+          # listed at once; a short poll only covers read replicas or a retry.
+          # After an idempotent 409 the row predates this run and may sit on
+          # another channel, so a miss there is a warning, not a failure.
+          deadline = time.monotonic() + (120 if published_now else 10)
+          listed = None
+          while True:
+              status, versions = request("GET", f"/v1/marketplace/skills/{skill_id}/versions")
+              items = versions.get("items", []) if isinstance(versions, dict) else []
+              listed = next((v for v in items if v.get("version") == version and v.get("channel") == channel), None)
+              if listed or time.monotonic() >= deadline:
+                  break
+              time.sleep(5)
+          if not listed:
+              message = f"{version} on channel {channel} is not listed by GET /v1/marketplace/skills/{skill_id}/versions (last status {status}: {versions})"
+              if published_now:
+                  sys.exit(f"::error::{message}")
+              print(f"::warning::{message}")
+              listed = {}
+
+          summary = {
+              "skill_id": skill_id, "slug": slug, "package": package, "version": version,
+              "channel": channel, "sha256": expected_sha,
+              **{k: resp.get(k) for k in ("wheel_path", "index_url") if isinstance(resp, dict) and resp.get(k)},
+              "source_ref": listed.get("source_ref"),
+          }
+          print(json.dumps(summary, indent=2))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
+              fh.write(f"## Released {package} {version} ({channel})\n\n")
+              for key, value in summary.items():
+                  fh.write(f"- **{key}**: `{value}`\n")
+          PY
