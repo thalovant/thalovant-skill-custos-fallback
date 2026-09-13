@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "thalovant-skillkit[skill]>=0.4.3",
+    "thalovant-skillkit[skill]>=0.10.0",
     "ovos-utils>=0.8.5",
     "ovos-workshop>=8.0.0,<10.0.0",
 ]
@@ -35,6 +35,7 @@ test = [
     "pytest-timeout>=2.0.0",
 ]
 e2e = [
+    "thalovant-skillkit[testing]>=0.10.0",
     "ovoscope>=1.6.7a1",
     "ovos-padatious>=2.0.1a1",
     "ovos-adapt-parser>=1.0.0",

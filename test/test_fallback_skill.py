@@ -155,3 +155,15 @@ def test_every_language_ovos_supports_is_carried():
     present = {p.name for p in LOCALE.iterdir() if p.is_dir()}
     missing = OVOS_LANGUAGES - present
     assert not missing, f"languages OVOS supports that would speak a raw identifier: {sorted(missing)}"
+
+
+def test_unmatched_private_speech_is_not_written_to_logs(monkeypatch):
+    from thalovant_skill_custos_fallback import LOG
+    entries = []
+    monkeypatch.setattr(LOG, "info", lambda *args: entries.append(args))
+    skill = make_skill()
+    secret = "my door code is 983472"
+    assert skill.preview_reply(secret, "en-US") in _dialog_lines()
+    assert entries
+    assert secret not in repr(entries)
+    assert "983472" not in repr(entries)

@@ -77,7 +77,7 @@ class CustosFallbackSkill(ThalovantFallbackSkill):
 
     def reply(self, utterance: str, lang: str, context: dict) -> str:
         """The hub answering, rather than the caller timing out."""
-        # What people ask and this hub cannot answer is the list of skills
-        # worth writing next, and nothing else records it.
-        LOG.info("custos fallback: nothing matched %r", utterance)
+        # Unmatched speech may contain personal information or a dictated
+        # credential. Record the outcome without retaining the raw question.
+        LOG.info("custos fallback: nothing matched (lang=%s)", self.locale_resources.lang(lang))
         return self.dialog("custos.unknown.request", lang)

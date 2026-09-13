@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 — 2026-09-13
+
+Stop recording raw unmatched speech in logs. Verify refusal routing through native OVOS for all 24 bundled locales, use shared OVOS test helpers, and validate wheel/sdist resources in CI.
+
 ## Unreleased
 
 No change to what the skill does; the words around it were wrong in places.

@@ -15,7 +15,8 @@ concurrency:
 
 jobs:
   unit:
-    # Fast, stable dependencies only, so this runs on every supported Python.
+    # Legacy Workshop 8 needs pkg_resources from setuptools<81.
+    # The native job below verifies the current OVOS stack.
     name: unit (py${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
@@ -29,7 +30,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: pip install -e '.[test]'
+      - run: pip install -e '.[test]' 'ovos-workshop==8.0.0' 'setuptools<81'
       - run: pytest test/ --ignore=test/end2end -v
 
   end-to-end:

@@ -15,16 +15,17 @@ produces a perfectly ordinary ``speak`` carrying the raw dialog name, so "did
 it speak" alone would pass on the exact failure this suite exists to catch.
 """
 
+from contextlib import ExitStack
 from pathlib import Path
 
 from ovos_utils.log import LOG
 from ovoscope import (
     FALLBACK_PIPELINE,
-    CaptureSession,
-    get_minicroft,
     make_session,
     make_utterance_message,
 )
+
+from thalovant_skillkit.testing_ovos import capture_turn, managed_minicroft
 
 SKILL_ID = "thalovant-skill-custos-fallback.thalovant"
 DIALOG_NAME = "custos.unknown.request"
@@ -46,12 +47,12 @@ class FallbackFiringMixin:
         LOG.set_level("DEBUG")
         # One language per class: a single-locale MiniCroft keeps each module
         # fast, the same reason the sibling skills split en and fr.
-        cls.minicroft = get_minicroft([SKILL_ID], lang=cls.LANG)
+        cleanup = ExitStack()
+        cls.addClassCleanup(cleanup.close)
+        cls.minicroft = cleanup.enter_context(managed_minicroft([SKILL_ID], lang=cls.LANG))
 
     @classmethod
     def tearDownClass(cls):
-        if getattr(cls, "minicroft", None):
-            cls.minicroft.stop()
         LOG.set_level("CRITICAL")
 
     def _capture(self, utterance: str):
@@ -69,9 +70,7 @@ class FallbackFiringMixin:
             lang=self.LANG,
         )
         message = make_utterance_message(utterance, lang=self.LANG, session=session)
-        capture = CaptureSession(minicroft=self.minicroft)
-        capture.capture(message, timeout=15)
-        return list(capture.finish())
+        return capture_turn(self.minicroft, message, timeout=15).messages
 
     def test_the_skill_loads_at_all(self):
         # Asserted separately from behaviour: this is the failure that also

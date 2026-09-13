@@ -1,24 +1,8 @@
-"""Per-worker XDG isolation for the ovoscope e2e suite.
-
-Every MiniCroft boots against the default XDG paths, racing to create the same
-Padatious cache / identity directories (FileExistsError). This skill keeps no
-store of its own, so that race is the whole reason: give each pytest worker
-(and the non-xdist run) its own private XDG tree so those writes never
-collide. Keyed off PYTEST_XDIST_WORKER so it works whether or not xdist is
-installed.
-"""
-
-import os
-
-import pytest
+"""Isolate OVOS caches before test modules import the runtime."""
+from thalovant_skillkit.testing_ovos import isolated_xdg
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _isolate_xdg(tmp_path_factory):
-    worker = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    root = tmp_path_factory.mktemp(f"xdg-{worker}")
-    for var in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
-        path = root / var.lower()
-        path.mkdir(parents=True, exist_ok=True)
-        os.environ[var] = str(path)
-    yield
+def pytest_configure(config):
+    isolation = isolated_xdg()
+    isolation.__enter__()
+    config.add_cleanup(lambda: isolation.__exit__(None, None, None))
