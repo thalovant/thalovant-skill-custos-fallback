@@ -1,0 +1,16 @@
+# Regional resources are generated from locale/regional.json.
+thalovant_skill_custos_fallback/locale/en-CA/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/en-GB/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/en-AU/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/en-NZ/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/fr-CA/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/fr-BE/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/fr-CH/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/es-MX/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/es-AR/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/es-CO/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/es-US/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/de-AT/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/de-CH/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/pt-AO/** linguist-generated=true
+thalovant_skill_custos_fallback/locale/pt-MZ/** linguist-generated=true
