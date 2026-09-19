@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 - 2026-09-19
+
+- Use SkillKit 0.14 regional fallback for compatible language variants without duplicating translations. Preserve the requesting session language.
+- Exercise regional requests through the native OVOS test harness.
+
 ## 0.1.2 — 2026-09-13
 
 Stop recording raw unmatched speech in logs. Verify refusal routing through native OVOS for all 24 bundled locales, use shared OVOS test helpers, and validate wheel/sdist resources in CI.

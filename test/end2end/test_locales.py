@@ -10,13 +10,14 @@ SKILL_ID = "thalovant-skill-custos-fallback.thalovant"
 LANGS = sorted(p.name for p in ROOT.iterdir() if p.is_dir())
 
 
-@pytest.mark.parametrize("lang", LANGS)
-def test_localized_refusal_reaches_its_originating_session(lang):
+@pytest.mark.parametrize("lang, resource_lang", [(lang, lang) for lang in LANGS] + [('en-CA', 'en-US'), ('en-GB', 'en-US'), ('fr-CA', 'fr-FR'), ('fr-BE', 'fr-FR'), ('de-AT', 'de-DE'), ('pt-AO', 'pt-PT')])
+def test_localized_refusal_reaches_its_originating_session(lang, resource_lang):
     with managed_minicroft([SKILL_ID], lang=lang) as croft:
         session = make_session(session_id=f"fallback-{lang}", lang=lang,
                                pipeline=list(FALLBACK_PIPELINE), blacklisted_skills=[])
         turn = capture_turn(croft, make_utterance_message("unmatched testing words", lang=lang, session=session), timeout=15)
         speech = turn.of_type("ovos.utterance.speak") or turn.of_type("speak")
-        expected = set((ROOT / lang / "dialog/custos.unknown.request.dialog").read_text().splitlines())
+        expected = set((ROOT / resource_lang / "dialog/custos.unknown.request.dialog").read_text().splitlines())
         assert speech and all(m.data["utterance"] in expected for m in speech)
+        assert all(m.data["lang"].casefold() == lang.casefold() for m in speech)
         assert all(m.context["session"]["session_id"] == session.session_id for m in speech)
