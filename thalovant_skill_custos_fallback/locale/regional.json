@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "_comment": "Generated locale directories inherit the source translation plus the explicit overrides below. Edit this file or the source locale, then run thalovant-skillkit locales --write. Shared wording is inherited, not an independently reviewed translation.",
+  "locales": {
+    "en-CA": {
+      "source": "en-US",
+      "overrides": {}
+    },
+    "en-GB": {
+      "source": "en-US",
+      "overrides": {}
+    },
+    "en-AU": {
+      "source": "en-US",
+      "overrides": {}
+    },
+    "en-NZ": {
+      "source": "en-US",
+      "overrides": {}
+    },
+    "fr-CA": {
+      "source": "fr-FR",
+      "overrides": {}
+    },
+    "fr-BE": {
+      "source": "fr-FR",
+      "overrides": {}
+    },
+    "fr-CH": {
+      "source": "fr-FR",
+      "overrides": {}
+    },
+    "es-MX": {
+      "source": "es-ES",
+      "overrides": {}
+    },
+    "es-AR": {
+      "source": "es-ES",
+      "overrides": {}
+    },
+    "es-CO": {
+      "source": "es-ES",
+      "overrides": {}
+    },
+    "es-US": {
+      "source": "es-ES",
+      "overrides": {}
+    },
+    "de-AT": {
+      "source": "de-DE",
+      "overrides": {}
+    },
+    "de-CH": {
+      "source": "de-DE",
+      "overrides": {
+        "dialog/custos.unknown.request.dialog": "Das kann ich nicht beantworten. Frag mich nach Vorfällen, oder wie es diesem Gerät geht.\nDas weiss ich nicht. Ich kann dir von Vorfällen und vom Zustand dieses Geräts erzählen.\n"
+      }
+    },
+    "pt-AO": {
+      "source": "pt-PT",
+      "overrides": {}
+    },
+    "pt-MZ": {
+      "source": "pt-PT",
+      "overrides": {}
+    }
+  }
+}

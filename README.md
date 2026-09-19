@@ -57,3 +57,16 @@ For the current OVOS stack, use `--pre` as shown above. If deliberately testing
 legacy Workshop 8.0.0, also install `"setuptools<81"`: its older plugin manager
 imports `pkg_resources`, which newer setuptools releases removed. This is a
 legacy environment constraint, not a runtime-wide setuptools restriction.
+
+## Regional translations
+
+This release ships 39 complete locale resource sets, including 15 newly completed
+regional variants of languages this skill already supports. Shared wording is inherited;
+regional differences live in `thalovant_skill_custos_fallback/locale/regional.json`. Existing
+regional translations are preserved. This is resource coverage, not certification by
+native speakers or a guarantee that every voice provider supports these accents.
+
+Edit the source language or the manifest, then run `thalovant-skillkit locales --write`
+and `thalovant-skillkit check --no-fleet`. Commit the generated files too. See the
+[regional authoring guide](https://docs.thalovant.com/developers/writing-a-skill/#generate-complete-regional-resources)
+for examples and the translation review checklist.

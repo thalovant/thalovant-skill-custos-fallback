@@ -125,7 +125,7 @@ def test_no_dialog_file_is_empty_or_untranslated_english():
         text = (locale / "dialog" / "custos.unknown.request.dialog").read_text()
         assert text.strip(), f"{locale.name} dialog is empty"
         assert len(text.strip().splitlines()) >= 2, f"{locale.name} lost a variant"
-        if locale.name not in {"en-US"}:
+        if locale.name.split("-")[0] != "en":
             assert text != english, f"{locale.name} is still English"
 
 

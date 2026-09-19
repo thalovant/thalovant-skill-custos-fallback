@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4 (2026-09-19)
+
+- Complete 15 common regional resource sets using shared translations and explicit
+  regional wording; keep existing regional translations.
+- Use SkillKit 0.15 regional generation and freshness checks, with complete files
+  for native OVOS and direct resource readers.
+- Update resource and regional behavior tests and document translation provenance.
+
+
 ## 0.1.3 - 2026-09-19
 
 - Use SkillKit 0.14 regional fallback for compatible language variants without duplicating translations. Preserve the requesting session language.
