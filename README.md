@@ -1,72 +1,23 @@
 # Custos Fallback
 
-[![PyPI](https://img.shields.io/pypi/v/thalovant-skill-custos-fallback)](https://pypi.org/project/thalovant-skill-custos-fallback/)
-[![License](https://img.shields.io/pypi/l/thalovant-skill-custos-fallback)](LICENSE)
+Give unanswered requests a helpful reply instead of leaving the room silent.
 
-**Your voice assistant should never just go quiet on you.**
+When nothing matches, you hear a short explanation and a suggestion for what to ask next.
 
-Ask it something it doesn't know, and normally nothing happens at all. No
-answer, no "sorry" — just silence, and you standing there wondering if it even
-heard you.
+## Get started
 
-This adds the missing reply:
+Install in your OVOS environment with `pip install thalovant-skill-custos-fallback`, then restart the skill loader.
 
-> *"I cannot answer that. Ask me about incidents, or how this appliance is
-> doing."*
+Speaks only after other skills decline a request. It works offline and suggests asking about incidents or the appliance’s status.
 
-That's the whole skill.
+Includes [39 language and regional resource sets](thalovant_skill_custos_fallback/locale/supported.json). Set your hub to a supported locale; speech recognition, voices, and provider language support depend on your setup.
 
-## Install
+## Learn more
 
-```bash
-pip install thalovant-skill-custos-fallback
-```
+[Setup, settings, and development](REFERENCE.md) · [Thalovant documentation](https://docs.thalovant.com/)
 
-Nothing to set up. It only speaks when no other skill could help, so it never
-gets in the way.
+## Credits
 
-Works with any [OpenVoiceOS](https://openvoiceos.org) assistant.
+Created and maintained by [Thalovant contributors](https://github.com/thalovant/thalovant-skill-custos-fallback/graphs/contributors), using [OpenVoiceOS](https://github.com/OpenVoiceOS) and [Thalovant SkillKit](https://github.com/thalovant/thalovant-skillkit).
 
-## Anything else
-
-- [How it works](HOW_IT_WORKS.md) — for the curious, and for anyone hacking on it
-- Apache-2.0 licensed. Use it, fork it, ship it.
-
-## Privacy and verification
-
-Unmatched requests produce a localized refusal. Logs record the outcome and
-resolved language without retaining the raw question, which may contain personal
-information. The skill uses no network service.
-
-Native OVOScope tests load every shipped locale and check that its refusal reaches
-the originating session. Separate behavior tests cover fallback priority, missing
-input, packaged resources, and the absence of raw speech in logs.
-
-```sh
-python -m pip install --pre -e '.[test,e2e]' build
-python -m pytest -q test --ignore=test/end2end
-python -m pytest -q test/end2end
-python -m build
-thalovant-skillkit check-artifacts . --wheel dist/*.whl --sdist dist/*.tar.gz
-```
-
-Passing resource and dispatch checks does not establish native-speaker review
-of every translation.
-
-For the current OVOS stack, use `--pre` as shown above. If deliberately testing
-legacy Workshop 8.0.0, also install `"setuptools<81"`: its older plugin manager
-imports `pkg_resources`, which newer setuptools releases removed. This is a
-legacy environment constraint, not a runtime-wide setuptools restriction.
-
-## Regional translations
-
-This release ships 39 complete locale resource sets, including 15 newly completed
-regional variants of languages this skill already supports. Shared wording is inherited;
-regional differences live in `thalovant_skill_custos_fallback/locale/regional.json`. Existing
-regional translations are preserved. This is resource coverage, not certification by
-native speakers or a guarantee that every voice provider supports these accents.
-
-Edit the source language or the manifest, then run `thalovant-skillkit locales --write`
-and `thalovant-skillkit check --no-fleet`. Commit the generated files too. See the
-[regional authoring guide](https://docs.thalovant.com/developers/writing-a-skill/#generate-complete-regional-resources)
-for examples and the translation review checklist.
+Apache-2.0 — see [LICENSE](LICENSE).

@@ -10,9 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 jobs:
   unit:
     # Legacy Workshop 8 needs pkg_resources from setuptools<81.
@@ -27,12 +26,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 2
+      - name: Check whether runtime tests are needed
+        id: scope
+        run: python3 .github/scripts/ci_scope.py
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+        if: steps.scope.outputs.run_tests == 'true'
+        id: python
+      - name: Cache dependency downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/uv
+          key: deps-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{
+            hashFiles('pyproject.toml', 'setup.py', 'setup.cfg', '**/requirements*.txt', 'uv.lock',
+            '.github/workflows/*.yml') }}
+        if: steps.scope.outputs.run_tests == 'true'
       - run: pip install -e '.[test]' 'ovos-workshop==8.0.0' 'setuptools<81'
+        if: steps.scope.outputs.run_tests == 'true'
       - run: pytest test/ --ignore=test/end2end -v
 
+        if: steps.scope.outputs.run_tests == 'true'
+    timeout-minutes: 20
   end-to-end:
     # Boots a real ovos-core through ovoscope. This is the layer that catches a
     # skill which passes unit tests and cannot be loaded at all — the failure
@@ -44,12 +62,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 2
+      - name: Check whether runtime tests are needed
+        id: scope
+        run: python3 .github/scripts/ci_scope.py
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+        if: steps.scope.outputs.run_tests == 'true'
+        id: python
+      - name: Cache dependency downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/uv
+          key: deps-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{
+            hashFiles('pyproject.toml', 'setup.py', 'setup.cfg', '**/requirements*.txt', 'uv.lock',
+            '.github/workflows/*.yml') }}
+        if: steps.scope.outputs.run_tests == 'true'
       - run: pip install --pre -e '.[test,e2e]'
+        if: steps.scope.outputs.run_tests == 'true'
       - run: pytest test/end2end -v
 
+        if: steps.scope.outputs.run_tests == 'true'
+    timeout-minutes: 20
   package:
     # A wheel that builds but ships no locale directory speaks dialog
     # identifiers at people, and nothing else here would notice.
@@ -62,6 +99,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+        id: python
+      - name: Cache dependency downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/uv
+          key: deps-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{
+            hashFiles('pyproject.toml', 'setup.py', 'setup.cfg', '**/requirements*.txt', 'uv.lock',
+            '.github/workflows/*.yml') }}
       - run: pip install build twine
       - run: python -m build
       - run: twine check dist/*
@@ -85,3 +132,4 @@ jobs:
           if missing:
               sys.exit(f"locales missing from the wheel: {sorted(missing)}")
           PY
+    timeout-minutes: 20
