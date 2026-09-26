@@ -5,8 +5,8 @@ Package jobs always run separately, because README changes affect distributions.
 """
 import json
 import os
-from pathlib import Path, PurePosixPath
 import subprocess
+from pathlib import Path, PurePosixPath
 
 
 def prose_only(paths):
