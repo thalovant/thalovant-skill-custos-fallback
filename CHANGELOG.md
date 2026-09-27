@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5 (2026-09-26)
+
+Dependency floor only; no behaviour change.
+
+- Require thalovant-skillkit 0.22.0, the release that sends speech markup (SSML)
+  beside a reply's plain words. The reply here needs no markup: two plain
+  sentences, spoken through the kit's fallback `reply`, so the kit's guard
+  against SSML in plain text covers it.
+
 ## 0.1.4 (2026-09-19)
 
 - Complete 15 common regional resource sets using shared translations and explicit
