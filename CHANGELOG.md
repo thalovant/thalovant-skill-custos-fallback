@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6 (2026-10-11)
+
+Adds Hindi (`hi-IN`), the one language the hubs serve that this skill still
+lacked. A hub speaking Hindi used to hear the dialog's identifier,
+`custos.unknown.request`, read out instead of a refusal. The two lines are
+written in Devanagari with the informal तुम, like the other Custos locales,
+and avoid gendered verb endings so they fit any voice. The test that pins
+every supported language now includes `hi-IN`. No code or dependency change.
+
 ## 0.1.5 (2026-09-26)
 
 Dependency floor only; no behaviour change.

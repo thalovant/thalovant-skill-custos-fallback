@@ -50,22 +50,22 @@ refusal costs about a second; a model guessing costs longer and may mislead.
 Deliberate thinking belongs behind an explicit intent, where the wait was asked
 for rather than sprung on someone.
 
-## Why 24 locales
+## Why 25 locales
 
 A skill booted in a language it has no locale directory for does **not** fall
 back to English. It renders the dialog's identifier, and the room hears the
 literal string `custos.unknown.request`. So for a dialog-only skill, an
 imperfect translation always beats an omitted one.
 
-The 24 locale directories are every language OVOS itself supports: twenty
-languages, four of them in two regional spellings — Dutch, Portuguese,
-Swedish and Kabyle:
+The 25 base locale directories are every language OVOS itself supports:
+twenty-one languages, four of them in two regional spellings — Dutch,
+Portuguese, Swedish and Kabyle:
 
 Català · Čeština · Dansk · Deutsch · English · Español · Euskara · فارسی ·
-Français · Galego · Italiano · Magyar · Nederlands · Polski · Português ·
-Русский · Svenska · Taqbaylit · Türkçe · Українська
+Français · Galego · हिन्दी · Italiano · Magyar · Nederlands · Polski ·
+Português · Русский · Svenska · Taqbaylit · Türkçe · Українська
 
-`en-US` and `fr-FR` are maintained. The other 22 directories are
+`en-US` and `fr-FR` are maintained. The other 23 directories are
 machine-authored and unreviewed — Kabyle least vouched-for of all. Corrections
 are the most useful contribution this repository can receive, and a pull
 request touching one language's `locale/<lang>/` directory needs no
