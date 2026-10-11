@@ -10,7 +10,7 @@ Install in your OVOS environment with `pip install thalovant-skill-custos-fallba
 
 Speaks only after other skills decline a request. It works offline and suggests asking about incidents or the appliance’s status.
 
-Includes [39 language and regional resource sets](thalovant_skill_custos_fallback/locale/supported.json). Set your hub to a supported locale; speech recognition, voices, and provider language support depend on your setup.
+Includes [40 language and regional resource sets](thalovant_skill_custos_fallback/locale/supported.json). Set your hub to a supported locale; speech recognition, voices, and provider language support depend on your setup.
 
 ## Learn more
 

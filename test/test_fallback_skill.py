@@ -131,10 +131,11 @@ def test_no_dialog_file_is_empty_or_untranslated_english():
 
 # Every language OVOS itself supports. `ovos-skill-date-time` carries the
 # widest set of the core skills (including both Kabyle spellings); ovos-core
-# adds nl-BE and uk-UA that no core skill ships.
+# adds nl-BE and uk-UA that no core skill ships, and hi-IN is the Hindi the
+# hubs serve.
 OVOS_LANGUAGES = {
     "ca-ES", "cs-CZ", "da-DK", "de-DE", "en-US", "es-ES", "eu-ES", "fa-IR",
-    "fr-FR", "gl-ES", "hu-HU", "it-IT", "kab", "kab-DZ", "nl-BE", "nl-NL",
+    "fr-FR", "gl-ES", "hi-IN", "hu-HU", "it-IT", "kab", "kab-DZ", "nl-BE", "nl-NL",
     "pl-PL", "pt-BR", "pt-PT", "ru-RU", "sv-FI", "sv-SE", "tr-TR", "uk-UA",
 }
 
