@@ -35,7 +35,7 @@ pip install thalovant-skill-custos-fallback
 
 ```sh
 pip install -e ".[test]"
-uv run pytest
+python -m pytest test --ignore=test/end2end
 ```
 
 Pull requests are tested on every change ([workflow](https://github.com/thalovant/thalovant-skill-custos-fallback/actions/workflows/test.yml)).
