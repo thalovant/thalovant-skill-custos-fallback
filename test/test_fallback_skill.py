@@ -22,9 +22,32 @@ class HarnessSkill(CustosFallbackSkill):
         return {}
 
 
+class RecordingBus:
+    """What a bound skill speaks through: records each spoken line the way `speak` would."""
+
+    def __init__(self, said):
+        self._said = said
+
+    def emit(self, message):
+        if message.msg_type in {"speak", "ovos.utterance.speak"}:
+            self._said.append(message.data.get("utterance", ""))
+
+    def on(self, *args, **kwargs):
+        pass
+
+    def once(self, *args, **kwargs):
+        pass
+
+    def remove(self, *args, **kwargs):
+        pass
+
+
 def make_skill():
     skill = HarnessSkill.__new__(HarnessSkill)
     skill.said = []
+    # A kit that answers the message it was given (thalovant-skillkit 0.24 and later) speaks
+    # through the skill's bus and raises on a skill without one; older kits call `speak`.
+    skill._bus = RecordingBus(skill.said)
     skill.speak = lambda text, *a, **k: skill.said.append(text)
     return skill
 
