@@ -1,5 +1,3 @@
-Last Edit: Claude Code (Claude Sonnet 5.5) - 2026-11-10 - Motive: Standard README (say it, install, settings, languages, develop).
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/thalovant/.github/main/profile/assets/thalovant-logo-dark.png">
